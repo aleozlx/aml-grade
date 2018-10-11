@@ -11,12 +11,29 @@ use gio::prelude::*;
 use gtk::prelude::*;
 use gio::{ApplicationExt, ApplicationExtManual};
 use gtk::{
-    AboutDialog, AccelFlags, AccelGroup, ApplicationWindow, CheckMenuItem, IconSize, Image, Label,
+    AboutDialog, AccelFlags, AccelGroup, ApplicationWindow, CheckButton, CheckMenuItem, IconSize, Image, Label,
     Menu, MenuBar, MenuItem, WindowPosition, FileChooserDialog, FileChooserAction, ResponseType, Builder
 };
 
 use std::env::args;
 use std::path::Path;
+
+macro_rules! clone {
+    (@param _) => ( _ );
+    (@param $x:ident) => ( $x );
+    ($($n:ident),+ => move || $body:expr) => (
+        {
+            $( let $n = $n.clone(); )+
+            move || $body
+        }
+    );
+    ($($n:ident),+ => move |$($p:tt),+| $body:expr) => (
+        {
+            $( let $n = $n.clone(); )+
+            move |$(clone!(@param $p),)+| $body
+        }
+    );
+}
 
 fn build_ui(application: &gtk::Application) {
     let matches = clap::App::new("aml-grade")
@@ -33,7 +50,6 @@ fn build_ui(application: &gtk::Application) {
     // println!("{}", glade_src);
     let builder = Builder::new_from_string(glade_src);
     let window: ApplicationWindow = builder.get_object("windowMain").expect("Main window undefined");
-
     window.set_application(application);
     window.set_position(WindowPosition::Center);
     window.set_size_request(400, 400);
@@ -41,6 +57,34 @@ fn build_ui(application: &gtk::Application) {
         win.destroy();
         Inhibit(false)
     });
+
+    let window_weak = window.downgrade();
+    let model = gio::ListStore::new(student::RowData::static_type());
+    let listbox: gtk::ListBox = builder.get_object("listStudents").expect("listStudents undefined");
+    listbox.bind_model(&model, clone!(window_weak => move |item| {
+        let box_ = gtk::ListBoxRow::new();
+        let item = item.downcast_ref::<student::RowData>().unwrap();
+        let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+
+        let label = gtk::Label::new(None);
+        label.set_xalign(0.0);
+        item.bind_property("sso", &label, "label")
+            .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE)
+            .build();
+        hbox.pack_start(&label, true, true, 0);
+
+        let check = gtk::CheckButton::new();
+        item.bind_property("selected", &check, "active")
+            .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE | glib::BindingFlags::BIDIRECTIONAL)
+            .build();
+        hbox.pack_start(&check, false, false, 0);
+        box_.add(&hbox);
+        box_.show_all();
+        box_
+    }));
+
+    model.append(&student::RowData::new("hello"));
+    model.append(&student::RowData::new("hi!!!"));
 
     let collection = matches.value_of("collection").unwrap();
     if Path::new(collection).exists() {
@@ -50,8 +94,14 @@ fn build_ui(application: &gtk::Application) {
             ("Cancel", ResponseType::Cancel.into())
         ]);
         dialog.set_current_folder(collection);
-        dialog.run();
-        // let files = dialog.get_filenames();
+        if ResponseType::from(dialog.run()) == ResponseType::Ok {
+            let notebook = dialog.get_filename().unwrap();
+            println!("{}", notebook.to_str().unwrap());
+        }
+        else {
+            application.quit();
+        }
+
         dialog.destroy();
     }
 
@@ -90,25 +140,24 @@ mod student {
         // The actual data structure that stores our values. This is not accessible
         // directly from the outside.
         pub struct RowData {
-            // pawprint: String, selected: bool
-            name: RefCell<Option<String>>,
-            count: RefCell<u32>,
+            sso: RefCell<Option<String>>,
+            selected: RefCell<bool>,
         }
 
         // GObject property definitions for our two values
         static PROPERTIES: [Property; 2] = [
             Property::String(
-                "name",
-                "Name",
-                "Name",
+                "sso",
+                "SSO",
+                "SSO",
                 None, // Default value
                 PropertyMutability::ReadWrite,
             ),
-            Property::UInt(
-                "count",
-                "Count",
-                "Count",
-                (0, 100), 0, // Allowed range and default value
+            Property::Boolean(
+                "selected",
+                "Selected",
+                "Selected",
+                false,
                 PropertyMutability::ReadWrite,
             ),
         ];
@@ -149,8 +198,8 @@ mod student {
             // creates the data structure that contains all our state
             fn init(_obj: &Object) -> Box<ObjectImpl<Object>> {
                 let imp = Self {
-                    name: RefCell::new(None),
-                    count: RefCell::new(0),
+                    sso: RefCell::new(None),
+                    selected: RefCell::new(false),
                 };
                 Box::new(imp)
             }
@@ -167,13 +216,13 @@ mod student {
                 let prop = &PROPERTIES[id as usize];
 
                 match *prop {
-                    Property::String("name", ..) => {
-                        let name = value.get();
-                        self.name.replace(name.clone());
+                    Property::String("sso", ..) => {
+                        let sso = value.get();
+                        self.sso.replace(sso.clone());
                     }
-                    Property::UInt("count", ..) => {
-                        let count = value.get().unwrap();
-                        self.count.replace(count);
+                    Property::Boolean("selected", ..) => {
+                        let selected = value.get().unwrap();
+                        self.selected.replace(selected);
                     }
                     _ => unimplemented!(),
                 }
@@ -183,8 +232,8 @@ mod student {
                 let prop = &PROPERTIES[id as usize];
 
                 match *prop {
-                    Property::String("name", ..) => Ok(self.name.borrow().clone().to_value()),
-                    Property::UInt("count", ..) => Ok(self.count.borrow().clone().to_value()),
+                    Property::String("sso", ..) => Ok(self.sso.borrow().clone().to_value()),
+                    Property::Boolean("selected", ..) => Ok(self.selected.borrow().clone().to_value()),
                     _ => unimplemented!(),
                 }
             }
@@ -226,14 +275,14 @@ mod student {
     // Constructor for new instances. This simply calls glib::Object::new() with
     // initial values for our two properties and then returns the new instance
     impl RowData {
-        pub fn new(name: &str, count: u32) -> RowData {
+        pub fn new(sso: &str) -> RowData {
             use glib::object::Downcast;
 
             unsafe {
                 glib::Object::new(
                     Self::static_type(),
-                    &[("name", &name),
-                      ("count", &count),
+                    &[("sso", &sso),
+                      ("selected", &false),
                     ])
                     .unwrap()
                     .downcast_unchecked()
