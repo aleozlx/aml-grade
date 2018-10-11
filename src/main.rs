@@ -35,6 +35,24 @@ macro_rules! clone {
     );
 }
 
+fn strip_sso<P: AsRef<Path>, Q: AsRef<Path>>(path: P, collection: Q) -> Option<std::path::PathBuf> {
+    let path = path.as_ref().strip_prefix(collection).unwrap();
+    let mut str_components = Vec::new();
+    str_components.extend(path.components().into_iter().map(|val| {
+        val.as_os_str().to_str().unwrap()
+    }));
+    Some(std::path::PathBuf::from(
+        str_components[1..].join(&std::path::MAIN_SEPARATOR.to_string())))
+}
+
+fn locate_notebook<P: AsRef<Path>, Q: AsRef<Path>>(path: P, sso: &str, collection: Q) -> Option<std::path::PathBuf> {
+    let p = collection.as_ref().join(sso).join(path);
+    match p.exists() {
+        true => Some(p),
+        false => None
+    }
+}
+
 fn build_ui(application: &gtk::Application) {
     let matches = clap::App::new("aml-grade")
         .version("1.0")
@@ -65,7 +83,7 @@ fn build_ui(application: &gtk::Application) {
         let box_ = gtk::ListBoxRow::new();
         let item = item.downcast_ref::<student::RowData>().unwrap();
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 5);
-
+        hbox.set_spacing(4);
         let label = gtk::Label::new(None);
         label.set_xalign(0.0);
         item.bind_property("sso", &label, "label")
@@ -78,13 +96,19 @@ fn build_ui(application: &gtk::Application) {
             .flags(glib::BindingFlags::DEFAULT | glib::BindingFlags::SYNC_CREATE | glib::BindingFlags::BIDIRECTIONAL)
             .build();
         hbox.pack_start(&check, false, false, 0);
+
+        let sites = vec!["Local", "Europa", "Callisto", "Kore", "Dia"];
+        for site in sites {
+            let open = gtk::Button::new();
+            open.set_label(site);
+            hbox.pack_start(&open, false, false, 0);
+        }
+        
+
         box_.add(&hbox);
         box_.show_all();
         box_
     }));
-
-    model.append(&student::RowData::new("hello"));
-    model.append(&student::RowData::new("hi!!!"));
 
     let collection = matches.value_of("collection").unwrap();
     if Path::new(collection).exists() {
@@ -95,8 +119,20 @@ fn build_ui(application: &gtk::Application) {
         ]);
         dialog.set_current_folder(collection);
         if ResponseType::from(dialog.run()) == ResponseType::Ok {
-            let notebook = dialog.get_filename().unwrap();
-            println!("{}", notebook.to_str().unwrap());
+            let notebook = strip_sso(dialog.get_filename().unwrap(), collection).unwrap();
+            // println!("{}", notebook.display());
+
+            let paths = std::fs::read_dir(collection).unwrap();
+            for i in paths {
+                let path = i.unwrap().path();
+                let sso = path.file_name().unwrap().to_str().unwrap();
+                if let Some(notebook_abs) = locate_notebook(&notebook, sso, collection) {
+                    model.append(&student::RowData::new(sso));
+                }
+                else {
+                    println!("NX({})", sso);
+                }
+            }
         }
         else {
             application.quit();
@@ -104,8 +140,9 @@ fn build_ui(application: &gtk::Application) {
 
         dialog.destroy();
     }
-
-
+    else {
+        application.quit();
+    }
     window.show_all();
 }
 
