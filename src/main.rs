@@ -11,8 +11,7 @@ use gio::prelude::*;
 use gtk::prelude::*;
 use gio::{ApplicationExt, ApplicationExtManual};
 use gtk::{
-    AboutDialog, AccelFlags, AccelGroup, ApplicationWindow, CheckButton, CheckMenuItem, IconSize, Image, Label,
-    Menu, MenuBar, MenuItem, WindowPosition, FileChooserDialog, FileChooserAction, ResponseType, Builder
+    ApplicationWindow, WindowPosition, FileChooserDialog, FileChooserAction, ResponseType, Builder
 };
 
 use std::env::args;
