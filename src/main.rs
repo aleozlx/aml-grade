@@ -102,7 +102,9 @@ fn build_ui(application: &gtk::Application) {
             let open = gtk::Button::new();
             open.set_label(site);
             if site == "Local" {
-                // let sso = item.sso;
+                if item.get_property("notebook_abs").unwrap().get::<String>().is_none() {
+                    open.set_sensitive(false);
+                }
             }
             else {
                 open.set_sensitive(false);
@@ -132,11 +134,19 @@ fn build_ui(application: &gtk::Application) {
             for i in paths {
                 let path = i.unwrap().path();
                 let sso = path.file_name().unwrap().to_str().unwrap();
+                model.append(&student::RowData::new(
+                    sso,
+                    match locate_notebook(&notebook, sso, collection) {
+                        Some(notebook_abs) => Some(String::from(notebook_abs.to_str().unwrap())),
+                        None => None
+                    }
+                ));
+
                 if let Some(_notebook_abs) = locate_notebook(&notebook, sso, collection) {
-                    model.append(&student::RowData::new(sso));
+                //     model.append(&student::RowData::new(sso));
                 }
                 else {
-                    model.append(&student::RowData::new(&format!("{} [NX]", sso)));
+                //     model.append(&student::RowData::new(&format!("{} [NX]", sso)));
                     println!("NX({})", sso);
                 }
             }

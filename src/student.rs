@@ -25,16 +25,24 @@ mod imp {
     // directly from the outside.
     pub struct RowData {
         sso: RefCell<Option<String>>,
+        notebook_abs: RefCell<Option<String>>,
         selected: RefCell<bool>,
     }
 
     // GObject property definitions for our two values
-    static PROPERTIES: [Property; 2] = [
+    static PROPERTIES: [Property; 3] = [
         Property::String(
             "sso",
             "SSO",
             "SSO",
             None, // Default value
+            PropertyMutability::ReadWrite,
+        ),
+        Property::String(
+            "notebook_abs",
+            "NotebookAbsPath",
+            "NotebookAbsPath",
+            None,
             PropertyMutability::ReadWrite,
         ),
         Property::Boolean(
@@ -83,6 +91,7 @@ mod imp {
         fn init(_obj: &Object) -> Box<ObjectImpl<Object>> {
             let imp = Self {
                 sso: RefCell::new(None),
+                notebook_abs: RefCell::new(None),
                 selected: RefCell::new(false),
             };
             Box::new(imp)
@@ -103,11 +112,15 @@ mod imp {
                 Property::String("sso", ..) => {
                     let sso = value.get();
                     self.sso.replace(sso.clone());
-                }
+                },
+                Property::String("notebook_abs", ..) => {
+                    let notebook_abs = value.get();
+                    self.notebook_abs.replace(notebook_abs.clone());
+                },
                 Property::Boolean("selected", ..) => {
                     let selected = value.get().unwrap();
                     self.selected.replace(selected);
-                }
+                },
                 _ => unimplemented!(),
             }
         }
@@ -117,6 +130,7 @@ mod imp {
 
             match *prop {
                 Property::String("sso", ..) => Ok(self.sso.borrow().clone().to_value()),
+                Property::String("notebook_abs", ..) => Ok(self.notebook_abs.borrow().clone().to_value()),
                 Property::Boolean("selected", ..) => Ok(self.selected.borrow().clone().to_value()),
                 _ => unimplemented!(),
             }
@@ -159,13 +173,15 @@ glib_wrapper! {
 // Constructor for new instances. This simply calls glib::Object::new() with
 // initial values for our two properties and then returns the new instance
 impl RowData {
-    pub fn new(sso: &str) -> RowData {
+    pub fn new(sso: &str, notebook_abs: Option<String>) -> RowData {
         use glib::object::Downcast;
 
         unsafe {
             glib::Object::new(
                 Self::static_type(),
-                &[("sso", &sso),
+                &[
+                    ("sso", &sso),
+                    ("notebook_abs", &notebook_abs),
                     ("selected", &false),
                 ])
                 .unwrap()
