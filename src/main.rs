@@ -121,34 +121,6 @@ fn build_ui(application: &gtk::Application) {
         box_
     }));
 
-    let menu_part1: MenuItem = builder.get_object("menuPart1").expect("p1 error");
-    menu_part1.connect_activate(move |_| {
-        let fname = Path::new("part1.txt");
-        if fname.exists() {
-            let f = File::open(fname).unwrap();
-            let reader = std::io::BufReader::new(&f);
-            for line in reader.lines() {
-                println!("{}", line.unwrap());
-            }
-        }
-        else {
-            println!("{} not found.", fname.display());
-        }
-        
-    });
-        // let act_part1 = gio::SimpleAction::new("actPart1", None);
-        // let label_partition: gtk::Label = builder.get_object("labelPartition").expect("p1 error");
-        // act_part1.connect_activate(clone!(label_partition => move |_, _| {
-        //     label_partition.set_text("Part 1");
-        // }));
-        // application.add_action(&act_part1);
-
-    // let button_partition: gtk::Button = builder.get_object("buttonPartition").expect("buttonPartition error");
-    // button_partition.connect_clicked(move |_| {
-    //     println!("Part1");
-    // });
-    
-
     let collection = matches.value_of("collection").unwrap();
     if Path::new(collection).exists() {
         let dialog = FileChooserDialog::new(Some("Choose a notebook"), Some(&window), FileChooserAction::Open);
@@ -181,6 +153,59 @@ fn build_ui(application: &gtk::Application) {
                     println!("NX({})", sso);
                 }
             }
+
+            let menu_part1: MenuItem = builder.get_object("menuPart1").expect("p1 error");
+            let notebook1 = notebook.clone();
+            menu_part1.connect_activate(move |_| {
+                let fname = Path::new("part1.txt");
+                if fname.exists() {
+                    let f = File::open(fname).unwrap();
+                    let reader = std::io::BufReader::new(&f);
+                    for line in reader.lines() {
+                        let ref jh = format!("http://localhost:8888/notebooks/{}/{}", line.unwrap(), notebook1.to_str().unwrap());
+                        std::process::Command::new("python3").args(&["-m", "webbrowser", "-t", jh]).spawn().expect("spawn() error");
+                    }
+                }
+                else {
+                    println!("{} not found.", fname.display());
+                }
+            });
+
+            let menu_part2: MenuItem = builder.get_object("menuPart2").expect("p2 error");
+            let notebook2 = notebook.clone();
+            menu_part2.connect_activate(move |_| {
+                let fname = Path::new("part2.txt");
+                if fname.exists() {
+                    let f = File::open(fname).unwrap();
+                    let reader = std::io::BufReader::new(&f);
+                    for line in reader.lines() {
+                        let ref jh = format!("http://localhost:8888/notebooks/{}/{}", line.unwrap(), notebook2.to_str().unwrap());
+                        std::process::Command::new("python3").args(&["-m", "webbrowser", "-t", jh]).spawn().expect("spawn() error");
+                    }
+                }
+                else {
+                    println!("{} not found.", fname.display());
+                }
+            });
+
+            let menu_part3: MenuItem = builder.get_object("menuPart3").expect("p3 error");
+            let notebook3 = notebook.clone();
+            menu_part3.connect_activate(move |_| {
+                let fname = Path::new("part3.txt");
+                if fname.exists() {
+                    let f = File::open(fname).unwrap();
+                    let reader = std::io::BufReader::new(&f);
+                    for line in reader.lines() {
+                        let ref jh = format!("http://localhost:8888/notebooks/{}/{}", line.unwrap(), notebook3.to_str().unwrap());
+                        std::process::Command::new("python3").args(&["-m", "webbrowser", "-t", jh]).spawn().expect("spawn() error");
+                    }
+                }
+                else {
+                    println!("{} not found.", fname.display());
+                }
+            });
+
+
         }
         else {
             application.quit();
