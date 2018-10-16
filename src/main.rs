@@ -7,15 +7,19 @@ extern crate glib_sys as glib_ffi;
 extern crate gobject_sys as gobject_ffi;
 extern crate gobject_subclass;
 
-use gio::prelude::*;
+// use gio::prelude::*;
+use gio::{ApplicationExt, ApplicationExtManual, ListStoreExt};
 use gtk::prelude::*;
-use gio::{ApplicationExt, ApplicationExtManual};
 use gtk::{
-    ApplicationWindow, WindowPosition, FileChooserDialog, FileChooserAction, ResponseType, Builder
+    ApplicationWindow, WindowPosition, FileChooserDialog, FileChooserAction, ResponseType, Builder, MenuItem,
+    // MenuItemExt
 };
 
 use std::env::args;
 use std::path::Path;
+use std::fs::File;
+use std::io::BufReader;
+use std::io::BufRead;
 mod student;
 
 macro_rules! clone {
@@ -112,11 +116,38 @@ fn build_ui(application: &gtk::Application) {
             hbox.pack_start(&open, false, false, 0);
         }
         
-
         box_.add(&hbox);
         box_.show_all();
         box_
     }));
+
+    let menu_part1: MenuItem = builder.get_object("menuPart1").expect("p1 error");
+    menu_part1.connect_activate(move |_| {
+        let fname = Path::new("part1.txt");
+        if fname.exists() {
+            let f = File::open(fname).unwrap();
+            let reader = std::io::BufReader::new(&f);
+            for line in reader.lines() {
+                println!("{}", line.unwrap());
+            }
+        }
+        else {
+            println!("{} not found.", fname.display());
+        }
+        
+    });
+        // let act_part1 = gio::SimpleAction::new("actPart1", None);
+        // let label_partition: gtk::Label = builder.get_object("labelPartition").expect("p1 error");
+        // act_part1.connect_activate(clone!(label_partition => move |_, _| {
+        //     label_partition.set_text("Part 1");
+        // }));
+        // application.add_action(&act_part1);
+
+    // let button_partition: gtk::Button = builder.get_object("buttonPartition").expect("buttonPartition error");
+    // button_partition.connect_clicked(move |_| {
+    //     println!("Part1");
+    // });
+    
 
     let collection = matches.value_of("collection").unwrap();
     if Path::new(collection).exists() {
